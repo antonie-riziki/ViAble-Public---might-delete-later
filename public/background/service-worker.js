@@ -32,17 +32,26 @@ async function activeTab() {
   return valid || allActive[0]
 }
 
+const BLOCKED_URL = /^(chrome|edge|about|chrome-extension|moz-extension|devtools|view-source):|^https:\/\/(chrome\.google\.com\/webstore|chromewebstore\.google\.com)/i
+
 async function ensureContentScript(tabId) {
   try {
     const ping = await api.tabs.sendMessage(tabId, { type: 'GET_PAGE_CONTEXT' })
     if (ping?.ok && ping.context) return ping
   } catch {
-    // Content script not yet active on tab, inject
+    // The tab was open before the extension loaded (or was reloaded): inject below.
   }
   if (api.scripting?.executeScript) {
     await api.scripting.executeScript({ target: { tabId }, files: ['content/page-context.js'] })
   }
   return api.tabs.sendMessage(tabId, { type: 'GET_PAGE_CONTEXT' })
+}
+
+function describeFailure(tab, error) {
+  const url = tab?.url || ''
+  if (BLOCKED_URL.test(url)) return 'Chrome does not let extensions read this kind of page (browser pages and the Web Store). Open a normal website.'
+  if (/^file:/i.test(url)) return 'To read local files, turn on "Allow access to file URLs" for ViAble in chrome://extensions.'
+  return `ViAble could not read this tab (${error?.message || 'no response'}). Reload the tab and try again.`
 }
 
 async function reapplyStoredAccessibility(tabId) {
@@ -99,8 +108,8 @@ api.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (!tab?.id) return { ok: false, error: 'No active webpage is available.' }
       try {
         return await ensureContentScript(tab.id)
-      } catch {
-        return { ok: false, error: 'ViAble needs an active webpage before it can inspect this tab.' }
+      } catch (error) {
+        return { ok: false, error: describeFailure(tab, error) }
       }
     }
     if (message?.type === 'GET_SETTINGS') {

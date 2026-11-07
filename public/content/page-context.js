@@ -1,4 +1,6 @@
 (() => {
+  if (window.__viablePageContextLoaded) return
+  window.__viablePageContextLoaded = true
   const clean = (value) => (value || '').replace(/\s+/g, ' ').trim()
   const accessibleName = (element) => {
     const labelledBy = element.getAttribute('aria-labelledby')

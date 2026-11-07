@@ -40,7 +40,7 @@ import {
   X,
 } from 'lucide-react'
 import { defaultActions, initialPageContext, type BrowserAction, type Language, type PageContext, type VoiceState } from './lib/domain'
-import { applyPageAccessibility, captureTabOcr, clickPageButton, executePageAction, fillPageFields, isExtensionRuntime, loadSettings, onTabChange, requestPageContext } from './lib/extension'
+import { getPageError, applyPageAccessibility, captureTabOcr, clickPageButton, executePageAction, fillPageFields, isExtensionRuntime, loadSettings, onTabChange, requestPageContext } from './lib/extension'
 import { analyzeCodeSwitching } from './lib/language'
 import { defaultAccessibilitySettings, loadAccessibilitySettings, saveAndApplyAccessibilitySettings, type PageAccessibilitySettings } from './lib/accessibility'
 import { askViAble, microphoneErrorMessage, performOcrAnalysis, requestMicrophoneAccess, speakViAble, startSpeechRecognition, startWhisperRecording, supportsSpeechRecognition, type VoiceRecognitionHandle, type VoiceProvider } from './lib/voice'
@@ -97,6 +97,7 @@ function App() {
   const [approved, setApproved] = useState(false)
   const [accessibility, setAccessibility] = useState<PageAccessibilitySettings>(defaultAccessibilitySettings)
   const [pageContext, setPageContext] = useState<PageContext>(initialPageContext)
+  const [pageProblem, setPageProblem] = useState('')
   const [runtimeMode, setRuntimeMode] = useState<'extension' | 'preview'>(isExtensionRuntime() ? 'extension' : 'preview')
   const [lastTranscript, setLastTranscript] = useState('')
   const [voiceError, setVoiceError] = useState('')
@@ -146,6 +147,7 @@ function App() {
 
   const inspectActiveWebpage = async (autoRead = false) => {
     const context = await requestPageContext()
+    setPageProblem(context && context.title ? '' : getPageError())
     if (context && context.title) {
       setPageContext(context)
       const pageKey = (context.url || '') + context.title
@@ -168,6 +170,7 @@ function App() {
       requestPageContext()
     ]).then(([accSettings, extSettings, context]) => {
       if (!mounted) return
+      setPageProblem(context && context.title ? '' : getPageError())
       setAccessibility(accSettings)
       void applyPageAccessibility(accSettings)
       setLanguage(extSettings.responseLanguage)
@@ -504,7 +507,7 @@ function App() {
           <div className="context-copy">
             <span className="eyebrow">Active Webpage</span>
             <strong>{pageContext.host}</strong>
-            <span>{runtimeMode === 'extension' ? 'Live browser tab' : 'Preview tab'}</span>
+            <span role={pageProblem ? 'alert' : undefined}>{pageProblem || (runtimeMode === 'extension' ? 'Live browser tab' : 'Preview tab')}</span>
           </div>
           <span className="online-indicator" aria-label="Connected" />
         </div>

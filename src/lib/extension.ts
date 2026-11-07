@@ -42,13 +42,19 @@ export function isExtensionRuntime() {
   return Boolean(getExtensionApi())
 }
 
+let pageError = ''
+/** Why the last page read failed ('' when it worked). */
+export const getPageError = () => pageError
+
 export async function requestPageContext(): Promise<PageContext | null> {
   const api = getExtensionApi()
   if (!api?.runtime) return null
   try {
-    const response = await api.runtime.sendMessage<{ ok: boolean; context?: PageContext }>({ type: 'GET_PAGE_CONTEXT' })
+    const response = await api.runtime.sendMessage<{ ok: boolean; context?: PageContext; error?: string }>({ type: 'GET_PAGE_CONTEXT' })
+    pageError = response?.ok ? '' : response?.error || 'No response from the ViAble background service.'
     return response?.ok ? response.context ?? null : null
-  } catch {
+  } catch (error) {
+    pageError = error instanceof Error ? error.message : 'No response from the ViAble background service.'
     return null
   }
 }

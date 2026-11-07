@@ -4,7 +4,14 @@
   "version": "0.1.0",
   "description": "An AI-powered multilingual web accessibility and interaction assistant for blind and low-vision users.",
   "permissions": ["activeTab", "tabs", "sidePanel", "storage", "scripting"],
-  "host_permissions": ["http://localhost:8787/*"],
+  "host_permissions": ["<all_urls>", "http://localhost:8787/*"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/page-context.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "action": {
     "default_title": "Open ViAble",
     "default_icon": {

@@ -1,4 +1,6 @@
 (() => {
+  if (window.__viablePageContextLoaded) return
+  window.__viablePageContextLoaded = true
   const clean = (value) => (value || '').replace(/\s+/g, ' ').trim()
   const accessibleName = (element) => {
     const labelledBy = element.getAttribute('aria-labelledby')
@@ -74,7 +76,8 @@
     if (!styleEl) {
       styleEl = document.createElement('style')
       styleEl.id = 'viable-accessibility-styles'
-      document.head?.appendChild(styleEl)
+      const targetParent = document.head || document.documentElement || document.body
+      if (targetParent) targetParent.appendChild(styleEl)
     }
 
     const { contrast, brightness = 100, fontScale = 100, highlightFocus = true } = settings || {}
@@ -82,15 +85,12 @@
 
     if (contrast === 'high-contrast') {
       css += `
-        html, body {
+        html, body, div, section, article, main, header, nav, footer, aside, p, span, h1, h2, h3, h4, h5, h6, li, label, td, th {
           background-color: #000000 !important;
           color: #FFFF00 !important;
+          border-color: #FFFF00 !important;
         }
-        p, span, h1, h2, h3, h4, h5, h6, li, label, td, th {
-          color: #FFFF00 !important;
-          background-color: transparent !important;
-        }
-        a {
+        a, a * {
           color: #00FFFF !important;
           text-decoration: underline !important;
         }
@@ -111,13 +111,19 @@
       `
     } else if (contrast === 'dark-mode') {
       css += `
-        html, body {
+        html, body, div, section, article, main, header, nav, footer, aside, form {
           background-color: #121212 !important;
           color: #E0E0E0 !important;
         }
-        p, span, li, label { color: #CCCCCC !important; }
-        h1, h2, h3, h4, h5, h6 { color: #FFFFFF !important; }
-        a { color: #64B5F6 !important; }
+        p, span, li, label, td, th {
+          color: #CCCCCC !important;
+        }
+        h1, h2, h3, h4, h5, h6 {
+          color: #FFFFFF !important;
+        }
+        a, a * {
+          color: #64B5F6 !important;
+        }
       `
     }
 
@@ -131,12 +137,8 @@
 
     if (fontScale && fontScale !== 100) {
       css += `
-        html {
-          font-size: ${fontScale}% !important;
-        }
-        p, li, span, a, input, button, label {
-          font-size: calc(1em * ${fontScale / 100}) !important;
-          line-height: 1.6 !important;
+        html, body {
+          zoom: ${fontScale / 100} !important;
         }
       `
     }
@@ -237,5 +239,14 @@
     if (message?.type === 'APPLY_ACCESSIBILITY_SETTINGS') sendResponse(applyAccessibilitySettings(message.settings || {}))
     return true
   })
+  
+  if (chrome?.storage?.local) {
+    chrome.storage.local.get(['accessibilitySettings'], (res) => {
+      if (res?.accessibilitySettings) {
+        applyAccessibilitySettings(res.accessibilitySettings)
+      }
+    })
+  }
+
   globalThis.__viablePageContextReady = true
 })()

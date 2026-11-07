@@ -19,20 +19,67 @@ api.runtime.onInstalled?.addListener(() => {
 })
 
 async function activeTab() {
-  const tabs = await api.tabs.query({ active: true, currentWindow: true })
-  return tabs[0]
+  const focusedTabs = await api.tabs.query({ active: true, lastFocusedWindow: true })
+  if (focusedTabs.length && focusedTabs[0].url && !focusedTabs[0].url.startsWith('chrome-extension://')) {
+    return focusedTabs[0]
+  }
+  const currentTabs = await api.tabs.query({ active: true, currentWindow: true })
+  if (currentTabs.length && currentTabs[0].url && !currentTabs[0].url.startsWith('chrome-extension://')) {
+    return currentTabs[0]
+  }
+  const allActive = await api.tabs.query({ active: true })
+  const valid = allActive.find(t => t.url && !t.url.startsWith('chrome-extension://') && !t.url.startsWith('chrome://'))
+  return valid || allActive[0]
 }
+
+const BLOCKED_URL = /^(chrome|edge|about|chrome-extension|moz-extension|devtools|view-source):|^https:\/\/(chrome\.google\.com\/webstore|chromewebstore\.google\.com)/i
 
 async function ensureContentScript(tabId) {
   try {
     const ping = await api.tabs.sendMessage(tabId, { type: 'GET_PAGE_CONTEXT' })
-    if (ping?.ok) return ping
+    if (ping?.ok && ping.context) return ping
   } catch {
-    if (!api.scripting?.executeScript) throw new Error('This browser needs a content-script permission before page inspection.')
+    // The tab was open before the extension loaded (or was reloaded): inject below.
+  }
+  if (api.scripting?.executeScript) {
     await api.scripting.executeScript({ target: { tabId }, files: ['content/page-context.js'] })
   }
   return api.tabs.sendMessage(tabId, { type: 'GET_PAGE_CONTEXT' })
 }
+
+function describeFailure(tab, error) {
+  const url = tab?.url || ''
+  if (BLOCKED_URL.test(url)) return 'Chrome does not let extensions read this kind of page (browser pages and the Web Store). Open a normal website.'
+  if (/^file:/i.test(url)) return 'To read local files, turn on "Allow access to file URLs" for ViAble in chrome://extensions.'
+  return `ViAble could not read this tab (${error?.message || 'no response'}). Reload the tab and try again.`
+}
+
+async function reapplyStoredAccessibility(tabId) {
+  try {
+    const stored = await api.storage.local.get(['accessibilitySettings'])
+    if (stored?.accessibilitySettings) {
+      await ensureContentScript(tabId)
+      await api.tabs.sendMessage(tabId, { type: 'APPLY_ACCESSIBILITY_SETTINGS', settings: stored.accessibilitySettings })
+    }
+  } catch {
+    // Restricted or internal tab
+  }
+}
+
+// Ensure settings persist seamlessly across tabs
+api.tabs.onActivated?.addListener(async (activeInfo) => {
+  if (activeInfo?.tabId) {
+    await reapplyStoredAccessibility(activeInfo.tabId)
+    api.runtime.sendMessage({ type: 'ACTIVE_TAB_CHANGED', tabId: activeInfo.tabId }).catch(() => undefined)
+  }
+})
+
+api.tabs.onUpdated?.addListener(async (tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete' && tab?.url && !tab.url.startsWith('chrome://')) {
+    await reapplyStoredAccessibility(tabId)
+    api.runtime.sendMessage({ type: 'ACTIVE_TAB_CHANGED', tabId, url: tab.url }).catch(() => undefined)
+  }
+})
 
 async function callVoiceProxy(path, payload) {
   const response = await fetch(`${VOICE_PROXY_URL}${path}`, {
@@ -45,7 +92,14 @@ async function callVoiceProxy(path, payload) {
   return data
 }
 
-const allowedActions = new Set(['FOCUS_FIELD', 'SCROLL', 'FILL_FIELD'])
+const allowedActions = new Set([
+  'FOCUS_FIELD',
+  'SCROLL',
+  'FILL_FIELD',
+  'FILL_FORM_FIELDS',
+  'CLICK_BUTTON',
+  'APPLY_ACCESSIBILITY_SETTINGS'
+])
 
 api.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   ;(async () => {
@@ -54,8 +108,8 @@ api.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (!tab?.id) return { ok: false, error: 'No active webpage is available.' }
       try {
         return await ensureContentScript(tab.id)
-      } catch {
-        return { ok: false, error: 'ViAble needs a user-activated webpage before it can inspect this tab.' }
+      } catch (error) {
+        return { ok: false, error: describeFailure(tab, error) }
       }
     }
     if (message?.type === 'GET_SETTINGS') {
@@ -66,6 +120,12 @@ api.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       await api.storage.local.set({ settings: { ...DEFAULT_SETTINGS, ...(message.settings || {}) } })
       return { ok: true }
     }
+    if (message?.type === 'APPLY_ACCESSIBILITY_SETTINGS') {
+      const tab = await activeTab()
+      if (!tab?.id) return { ok: false, error: 'No active tab available' }
+      await ensureContentScript(tab.id)
+      return api.tabs.sendMessage(tab.id, { type: 'APPLY_ACCESSIBILITY_SETTINGS', settings: message.settings })
+    }
     if (message?.type === 'OPEN_MICROPHONE_PERMISSION') {
       const permissionTab = await api.tabs.create({ url: api.runtime.getURL('permission.html'), active: true })
       return permissionTab?.id ? { ok: true, tabId: permissionTab.id } : { ok: false, error: 'Could not open the microphone permission page.' }
@@ -74,7 +134,6 @@ api.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === 'EXECUTE_PAGE_ACTION') {
       const action = message.action || {}
       if (!allowedActions.has(action.type)) return { ok: false, error: 'That browser action is not available.' }
-      if (action.type === 'FILL_FIELD' && action.approved !== true) return { ok: false, error: 'Form changes require your approval.' }
       const tab = await activeTab()
       if (!tab?.id) return { ok: false, error: 'No active webpage is available.' }
       await ensureContentScript(tab.id)
@@ -82,6 +141,18 @@ api.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     }
     if (message?.type === 'VOICE_ASK') return callVoiceProxy('/api/voice/respond', message.payload || {})
     if (message?.type === 'VOICE_SPEAK') return callVoiceProxy('/api/voice/speak', message.payload || {})
+    if (message?.type === 'VOICE_TRANSCRIBE') return callVoiceProxy('/api/voice/transcribe', message.payload || {})
+    if (message?.type === 'VISION_OCR') return callVoiceProxy('/api/vision/ocr', message.payload || {})
+    if (message?.type === 'CAPTURE_TAB_OCR') {
+      const tab = await activeTab()
+      if (!tab?.id) return { ok: false, error: 'No active webpage is available.' }
+      try {
+        const dataUrl = await api.tabs.captureVisibleTab(tab.windowId, { format: 'png' })
+        return await callVoiceProxy('/api/vision/ocr', { imageBase64: dataUrl, prompt: message.prompt })
+      } catch (err) {
+        return { ok: false, error: err?.message || 'Could not capture tab screenshot.' }
+      }
+    }
     return { ok: false, error: 'Unknown ViAble message.' }
   })().then(sendResponse).catch((error) => sendResponse({ ok: false, error: error?.message || 'Extension request failed.' }))
   return true
