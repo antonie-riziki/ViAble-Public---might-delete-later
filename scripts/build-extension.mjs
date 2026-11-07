@@ -1,8 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, copyFileSync, writeFileSync } from 'node:fs'
-import { resolve, join } from 'node:path'
+import { resolve, join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 
-const root = resolve(new URL('..', import.meta.url).pathname)
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const targets = process.argv[2] === 'all' ? ['chrome', 'edge', 'firefox'] : [process.argv[2] || 'chrome']
 const viteBin = join(root, 'node_modules', 'vite', 'bin', 'vite.js')
 

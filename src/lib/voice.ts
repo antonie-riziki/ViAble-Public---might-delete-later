@@ -325,8 +325,32 @@ function decodeBase64(value: string) {
   return bytes
 }
 
-function browserSpeak(text: string, language: Language) {
-  return new Promise<void>((resolve) => {
+/**
+ * Spoken output is played by an offscreen document (see public/offscreen.js): Chrome
+ * refuses sound in a side panel until the person has clicked in it, which would stop
+ * pages being read aloud the moment they open.
+ */
+async function viaOffscreen(message: Record<string, unknown>): Promise<{ ok?: boolean; error?: string } | null> {
+  const api = getVoiceExtensionApi()
+  if (!api?.runtime) return null
+  try {
+    const ready = (await api.runtime.sendMessage({ type: 'ENSURE_OFFSCREEN' })) as { ok?: boolean } | undefined
+    if (!ready?.ok) return null
+    return ((await api.runtime.sendMessage({ target: 'offscreen', ...message })) as { ok?: boolean; error?: string } | undefined) ?? null
+  } catch {
+    return null
+  }
+}
+
+export async function stopSpeech() {
+  window.speechSynthesis?.cancel()
+  await viaOffscreen({ type: 'STOP' })
+}
+
+async function browserSpeak(text: string, language: Language) {
+  const spoken = await viaOffscreen({ type: 'SPEAK', text, lang: languageCode(language), rate: 0.95 })
+  if (spoken?.ok) return
+  await new Promise<void>((resolve) => {
     if (!('speechSynthesis' in window)) return resolve()
     window.speechSynthesis.cancel()
     const utterance = new SpeechSynthesisUtterance(text)
@@ -348,6 +372,9 @@ export async function speakViAble(text: string, language: Language) {
       response = await requestProvider('/api/voice/speak', { text, language })
     }
     if (response?.ok && response.audioBase64) {
+      const played = await viaOffscreen({ type: 'PLAY', audioBase64: response.audioBase64, mimeType: response.mimeType || 'audio/mpeg' })
+      if (played?.ok) return (response.provider || 'Gemini + ElevenLabs') as VoiceProvider
+      // No offscreen support (Firefox, preview): play in the panel itself.
       const blob = new Blob([decodeBase64(response.audioBase64)], { type: response.mimeType || 'audio/mpeg' })
       const url = URL.createObjectURL(blob)
       const audio = new Audio(url)

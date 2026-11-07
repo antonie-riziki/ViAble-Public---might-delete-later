@@ -18,18 +18,39 @@ api.runtime.onInstalled?.addListener(() => {
   if (tab.windowId && api.sidePanel?.open) await api.sidePanel.open({ windowId: tab.windowId })
 })
 
-async function activeTab() {
-  const focusedTabs = await api.tabs.query({ active: true, lastFocusedWindow: true })
-  if (focusedTabs.length && focusedTabs[0].url && !focusedTabs[0].url.startsWith('chrome-extension://')) {
-    return focusedTabs[0]
+async function ensureOffscreen() {
+  if (!api.offscreen?.createDocument) return false
+  try {
+    const existing = await api.runtime.getContexts?.({ contextTypes: ['OFFSCREEN_DOCUMENT'] })
+    if (existing?.length) return true
+    await api.offscreen.createDocument({ url: 'offscreen.html', reasons: ['AUDIO_PLAYBACK'], justification: 'Read web pages aloud automatically for blind and low-vision users, without needing a click.' })
+    return true
+  } catch (error) {
+    return /single offscreen|already exists/i.test(error?.message || '')
   }
-  const currentTabs = await api.tabs.query({ active: true, currentWindow: true })
-  if (currentTabs.length && currentTabs[0].url && !currentTabs[0].url.startsWith('chrome-extension://')) {
-    return currentTabs[0]
+}
+
+const NORMAL_WINDOW = { windowTypes: ['normal'] }
+const isWebTab = (tab, excludeId) => tab?.id && tab.id !== excludeId && !/^(chrome|edge|about|chrome-extension|moz-extension|devtools|view-source):/i.test(tab.url || 'http://unknown')
+
+/**
+ * Find the page the person is looking at, on any OS. The side panel tells us which
+ * browser window it belongs to, which is exact; the other strategies cover the rest.
+ */
+async function activeTab(windowId, excludeId) {
+  if (windowId) {
+    const own = await api.tabs.query({ active: true, windowId })
+    if (isWebTab(own[0], excludeId)) return own[0]
   }
-  const allActive = await api.tabs.query({ active: true })
-  const valid = allActive.find(t => t.url && !t.url.startsWith('chrome-extension://') && !t.url.startsWith('chrome://'))
-  return valid || allActive[0]
+  const focused = await api.tabs.query({ active: true, lastFocusedWindow: true })
+  if (isWebTab(focused[0], excludeId)) return focused[0]
+  try {
+    const last = await api.windows.getLastFocused({ ...NORMAL_WINDOW, populate: true })
+    const tab = last?.tabs?.find((t) => t.active)
+    if (isWebTab(tab, excludeId)) return tab
+  } catch { /* windows API unavailable */ }
+  const everywhere = await api.tabs.query({ active: true })
+  return everywhere.find((t) => isWebTab(t, excludeId)) || focused[0] || everywhere[0]
 }
 
 const BLOCKED_URL = /^(chrome|edge|about|chrome-extension|moz-extension|devtools|view-source):|^https:\/\/(chrome\.google\.com\/webstore|chromewebstore\.google\.com)/i
@@ -51,7 +72,7 @@ function describeFailure(tab, error) {
   const url = tab?.url || ''
   if (BLOCKED_URL.test(url)) return 'Chrome does not let extensions read this kind of page (browser pages and the Web Store). Open a normal website.'
   if (/^file:/i.test(url)) return 'To read local files, turn on "Allow access to file URLs" for ViAble in chrome://extensions.'
-  return `ViAble could not read this tab (${error?.message || 'no response'}). Reload the tab and try again.`
+  return `ViAble could not read this tab (${error?.message || 'no response'}; tab ${tab?.id ?? 'none'}). Reload the tab and try again.`
 }
 
 async function reapplyStoredAccessibility(tabId) {
@@ -101,10 +122,12 @@ const allowedActions = new Set([
   'APPLY_ACCESSIBILITY_SETTINGS'
 ])
 
-api.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+api.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.target === 'offscreen') return false // addressed to the audio document
   ;(async () => {
+    if (message?.type === 'ENSURE_OFFSCREEN') return { ok: await ensureOffscreen() }
     if (message?.type === 'GET_PAGE_CONTEXT') {
-      const tab = await activeTab()
+      const tab = await activeTab(message.windowId, sender?.tab?.id)
       if (!tab?.id) return { ok: false, error: 'No active webpage is available.' }
       try {
         return await ensureContentScript(tab.id)
@@ -121,7 +144,7 @@ api.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       return { ok: true }
     }
     if (message?.type === 'APPLY_ACCESSIBILITY_SETTINGS') {
-      const tab = await activeTab()
+      const tab = await activeTab(message.windowId, sender?.tab?.id)
       if (!tab?.id) return { ok: false, error: 'No active tab available' }
       await ensureContentScript(tab.id)
       return api.tabs.sendMessage(tab.id, { type: 'APPLY_ACCESSIBILITY_SETTINGS', settings: message.settings })
@@ -134,7 +157,7 @@ api.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === 'EXECUTE_PAGE_ACTION') {
       const action = message.action || {}
       if (!allowedActions.has(action.type)) return { ok: false, error: 'That browser action is not available.' }
-      const tab = await activeTab()
+      const tab = await activeTab(message.windowId, sender?.tab?.id)
       if (!tab?.id) return { ok: false, error: 'No active webpage is available.' }
       await ensureContentScript(tab.id)
       return api.tabs.sendMessage(tab.id, { type: 'EXECUTE_PAGE_ACTION', action })
@@ -144,7 +167,7 @@ api.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === 'VOICE_TRANSCRIBE') return callVoiceProxy('/api/voice/transcribe', message.payload || {})
     if (message?.type === 'VISION_OCR') return callVoiceProxy('/api/vision/ocr', message.payload || {})
     if (message?.type === 'CAPTURE_TAB_OCR') {
-      const tab = await activeTab()
+      const tab = await activeTab(message.windowId, sender?.tab?.id)
       if (!tab?.id) return { ok: false, error: 'No active webpage is available.' }
       try {
         const dataUrl = await api.tabs.captureVisibleTab(tab.windowId, { format: 'png' })

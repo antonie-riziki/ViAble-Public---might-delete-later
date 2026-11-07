@@ -40,7 +40,8 @@ import {
   X,
 } from 'lucide-react'
 import { defaultActions, initialPageContext, type BrowserAction, type Language, type PageContext, type VoiceState } from './lib/domain'
-import { getPageError, applyPageAccessibility, captureTabOcr, clickPageButton, executePageAction, fillPageFields, isExtensionRuntime, loadSettings, onTabChange, requestPageContext } from './lib/extension'
+import { stopSpeech } from './lib/voice'
+import { getPageError, saveSettings, applyPageAccessibility, captureTabOcr, clickPageButton, executePageAction, fillPageFields, isExtensionRuntime, loadSettings, onTabChange, requestPageContext } from './lib/extension'
 import { analyzeCodeSwitching } from './lib/language'
 import { defaultAccessibilitySettings, loadAccessibilitySettings, saveAndApplyAccessibilitySettings, type PageAccessibilitySettings } from './lib/accessibility'
 import { askViAble, microphoneErrorMessage, performOcrAnalysis, requestMicrophoneAccess, speakViAble, startSpeechRecognition, startWhisperRecording, supportsSpeechRecognition, type VoiceRecognitionHandle, type VoiceProvider } from './lib/voice'
@@ -105,6 +106,8 @@ function App() {
   const [speechSupported, setSpeechSupported] = useState(false)
   const recognitionRef = useRef<VoiceRecognitionHandle | null>(null)
   const autoReadRef = useRef<string>('')
+  const autoReadOnRef = useRef(true)
+  const [autoRead, setAutoRead] = useState(true)
   
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -151,7 +154,7 @@ function App() {
     if (context && context.title) {
       setPageContext(context)
       const pageKey = (context.url || '') + context.title
-      if (autoRead && autoReadRef.current !== pageKey) {
+      if (autoRead && autoReadOnRef.current && autoReadRef.current !== pageKey) {
         autoReadRef.current = pageKey
         void speakPageTalkBack(context, language)
       }
@@ -174,12 +177,14 @@ function App() {
       setAccessibility(accSettings)
       void applyPageAccessibility(accSettings)
       setLanguage(extSettings.responseLanguage)
+      autoReadOnRef.current = extSettings.autoRead !== false
+      setAutoRead(extSettings.autoRead !== false)
       setRuntimeMode(isExtensionRuntime() ? 'extension' : 'preview')
 
       if (context && context.title) {
         setPageContext(context)
         autoReadRef.current = (context.url || '') + context.title
-        void speakPageTalkBack(context, extSettings.responseLanguage)
+        if (extSettings.autoRead !== false) void speakPageTalkBack(context, extSettings.responseLanguage)
       } else {
         setMessages([
           {
@@ -195,10 +200,13 @@ function App() {
     const unbind = onTabChange(() => {
       void inspectActiveWebpage(true)
     })
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') void stopSpeech() }
+    window.addEventListener('keydown', onKey)
 
     return () => {
       mounted = false
       recognitionRef.current?.abort()
+      window.removeEventListener('keydown', onKey)
       unbind()
     }
   }, [])
@@ -511,7 +519,6 @@ function App() {
           </div>
           <span className="online-indicator" aria-label="Connected" />
         </div>
-
         <nav className="nav-list">
           <p className="nav-label">Workspace</p>
           {navItems.map(({ label, icon: Icon }) => (
@@ -604,6 +611,21 @@ function App() {
                 </span>
                 <button className="inline-link" onClick={() => handleQuickAction(defaultActions[3])}>Find info</button>
               </div>
+              {pageProblem && <p className="page-problem" role="alert">{pageProblem}</p>}
+              <label className="auto-read">
+                <input
+                  type="checkbox"
+                  checked={autoRead}
+                  onChange={(event) => {
+                    const on = event.target.checked
+                    setAutoRead(on)
+                    autoReadOnRef.current = on
+                    if (!on) void stopSpeech()
+                    void loadSettings().then((saved) => saveSettings({ ...saved, autoRead: on }))
+                  }}
+                />
+                <span>Read each page aloud automatically <small>(Esc stops speaking)</small></span>
+              </label>
             </div>
 
             <div className="hero-card">

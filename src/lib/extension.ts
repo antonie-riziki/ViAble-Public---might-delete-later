@@ -5,6 +5,8 @@ export type ExtensionSettings = {
   interactionMode: 'reader-first' | 'voice' | 'task-assistance'
   readingSpeed: number
   rememberPreferences: boolean
+  /** Read each page aloud as soon as it opens, with no button press. */
+  autoRead?: boolean
   sttEngine?: 'whisper' | 'browser'
   ttsEngine?: 'elevenlabs' | 'browser'
   codeSwitchingPreference?: 'adaptive' | 'always-sheng' | 'always-swahili' | 'kenyan-english'
@@ -25,6 +27,7 @@ const defaultSettings: ExtensionSettings = {
   interactionMode: 'reader-first',
   readingSpeed: 1,
   rememberPreferences: true,
+  autoRead: true,
   sttEngine: 'whisper',
   ttsEngine: 'elevenlabs',
   codeSwitchingPreference: 'adaptive',
@@ -42,6 +45,12 @@ export function isExtensionRuntime() {
   return Boolean(getExtensionApi())
 }
 
+/** The browser window this panel belongs to: the exact tab to read, on every OS. */
+async function ownWindowId(): Promise<number | undefined> {
+  const w = globalThis as typeof globalThis & { chrome?: { windows?: { getCurrent?: () => Promise<{ id?: number }> } } }
+  try { return (await w.chrome?.windows?.getCurrent?.())?.id } catch { return undefined }
+}
+
 let pageError = ''
 /** Why the last page read failed ('' when it worked). */
 export const getPageError = () => pageError
@@ -50,7 +59,7 @@ export async function requestPageContext(): Promise<PageContext | null> {
   const api = getExtensionApi()
   if (!api?.runtime) return null
   try {
-    const response = await api.runtime.sendMessage<{ ok: boolean; context?: PageContext; error?: string }>({ type: 'GET_PAGE_CONTEXT' })
+    const response = await api.runtime.sendMessage<{ ok: boolean; context?: PageContext; error?: string }>({ type: 'GET_PAGE_CONTEXT', windowId: await ownWindowId() })
     pageError = response?.ok ? '' : response?.error || 'No response from the ViAble background service.'
     return response?.ok ? response.context ?? null : null
   } catch (error) {

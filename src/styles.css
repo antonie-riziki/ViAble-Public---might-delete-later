@@ -338,3 +338,8 @@ body { min-width: 0; width: 100%; }
   border-color: #0b1f33;
 }
 
+
+.auto-read{display:flex;align-items:flex-start;gap:10px;margin:10px 4px 0;font-size:13px;line-height:1.4;cursor:pointer}
+.auto-read input{width:20px;height:20px;margin-top:1px;flex:none}
+.auto-read small{opacity:.7}
+.page-problem{margin:10px 0 0;padding:10px 12px;border-radius:10px;background:#fff1f0;color:#8a1c14;border:1px solid #f3b7b1;font-size:13px}
