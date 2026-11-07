@@ -1,0 +1,29 @@
+body:has(#options-root) { min-width: 0; background: #f7fafc; }
+.options-shell { min-height: 100vh; padding: 40px 22px 80px; }
+.options-header, .options-card { width: min(700px, 100%); margin: 0 auto; }
+.options-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 22px; }
+.options-header .brand-lockup { display: flex; align-items: center; gap: 10px; }
+.options-logo { width: 48px; height: 48px; object-fit: contain; }
+.options-symbol { display: grid; place-items: center; width: 36px; height: 36px; color: #fff; background: linear-gradient(145deg, #0b1f33, #087f70); border-radius: 11px; font-size: 19px; font-weight: 800; }
+.options-header strong, .options-header span { display: block; }
+.options-header strong { font-size: 17px; letter-spacing: -.04em; }
+.options-header .brand-lockup span:last-child { margin-top: 3px; color: #8395a2; font-size: 9px; }
+.options-badge { display: inline-flex !important; align-items: center; gap: 5px; color: #087f70; font-size: 10px; font-weight: 700; }
+.options-card { padding: 34px; background: #fff; border: 1px solid #dfe8ee; border-radius: 17px; box-shadow: 0 10px 30px rgba(11,31,51,.05); }
+.options-card h1 { margin: 8px 0 8px; font-size: 28px; letter-spacing: -.055em; }
+.options-intro { max-width: 560px; margin: 0 0 30px; color: #687c8b; font-size: 12px; line-height: 1.65; }
+.options-field, fieldset { display: flex; align-items: center; justify-content: space-between; gap: 25px; padding: 18px 0; border: 0; border-top: 1px solid #edf1f4; }
+.options-field > span, .radio-row > span, .check-row > span { display: grid; gap: 4px; }
+.options-field strong, fieldset strong, .check-row strong { font-size: 12px; }
+.options-field small, fieldset small, .check-row small { color: #8495a0; font-size: 10px; line-height: 1.45; }
+.options-field select { min-width: 140px; padding: 9px; color: #526579; background: #fff; border: 1px solid #d5e0e7; border-radius: 7px; }
+fieldset { display: grid; gap: 0; margin: 0; }
+fieldset legend { padding: 0; margin-bottom: 7px; font-size: 12px; font-weight: 700; }
+.radio-row, .check-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; }
+.radio-row input, .check-row input { margin-top: 2px; accent-color: #087f70; }
+.options-field input[type='range'] { width: 180px; accent-color: #087f70; }
+.options-privacy { display: flex; align-items: flex-start; gap: 9px; margin: 20px 0; padding: 13px; color: #087f70; background: #effaf6; border-radius: 9px; font-size: 10px; line-height: 1.5; }
+.options-privacy span { color: #638378; }
+.options-privacy strong { color: #087f70; }
+.options-save { width: 100%; }
+@media (max-width: 560px) { .options-header { display: grid; } .options-card { padding: 22px; } .options-field { align-items: flex-start; flex-direction: column; gap: 10px; } .options-field select, .options-field input[type='range'] { width: 100%; } }
