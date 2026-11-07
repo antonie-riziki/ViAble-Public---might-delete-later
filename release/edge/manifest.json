@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "ViAble",
+  "version": "0.1.0",
+  "description": "An AI-powered multilingual web accessibility and interaction assistant for blind and low-vision users.",
+  "permissions": ["activeTab", "sidePanel", "storage", "scripting"],
+  "host_permissions": ["http://localhost:8787/*"],
+  "action": {
+    "default_title": "Open ViAble",
+    "default_icon": {
+      "16": "brand/icon16.png",
+      "32": "brand/icon32.png",
+      "48": "brand/icon48.png",
+      "128": "brand/icon128.png"
+    }
+  },
+  "side_panel": { "default_path": "index.html" },
+  "options_page": "options.html",
+  "background": { "service_worker": "background/service-worker.js", "type": "module" },
+  "icons": {
+    "16": "brand/icon16.png",
+    "32": "brand/icon32.png",
+    "48": "brand/icon48.png",
+    "128": "brand/icon128.png"
+  }
+}

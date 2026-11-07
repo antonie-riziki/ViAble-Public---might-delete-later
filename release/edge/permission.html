@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0B1F33" />
+    <title>ViAble microphone access</title>
+    <style>:root{color:#0b1f33;background:#f7fafc;font:16px/1.5 system-ui,-apple-system,sans-serif}body{place-items:center;min-height:100vh;margin:0;display:grid}main{text-align:center;background:#fff;border:1px solid #dfe8ee;border-radius:18px;width:min(440px,100% - 40px);padding:34px;box-shadow:0 16px 40px #0b1f3314}img{object-fit:contain;width:112px;height:112px}h1{letter-spacing:-.04em;margin:16px 0 8px;font-size:25px}p{color:#687c8b;font-size:14px}button{color:#fff;min-height:46px;font:inherit;cursor:pointer;background:#087f70;border:0;border-radius:10px;padding:0 20px;font-weight:700}button:disabled{cursor:wait;opacity:.65}#status{min-height:24px;margin-bottom:0;font-size:13px}</style>
+    <script type="module" crossorigin src="/assets/permission-H_DzneoW.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-P2Xu9kJm.js">
+  </head>
+  <body>
+    <main>
+      <img src="/brand/logo.png" alt="ViAble" />
+      <h1>Allow microphone access</h1>
+      <p>ViAble needs your microphone for voice requests. Choose Allow in the browser prompt; this tab will close and the side panel will start listening.</p>
+      <button id="allow-microphone" type="button">Allow microphone</button>
+      <p id="status" role="status" aria-live="polite">Waiting for permission…</p>
+    </main>
+  </body>
+</html>
