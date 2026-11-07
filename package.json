@@ -1,0 +1,42 @@
+{
+  "name": "viable-accessibility-assistant",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "dev:extension": "vite --host 0.0.0.0",
+    "voice:server": "node --env-file=.env.local server/voice-proxy.mjs",
+    "build": "tsc -b && vite build",
+    "build:chrome": "node scripts/build-extension.mjs chrome",
+    "build:edge": "node scripts/build-extension.mjs edge",
+    "build:firefox": "node scripts/build-extension.mjs firefox",
+    "build:all": "node scripts/build-extension.mjs all",
+    "package:chrome": "node scripts/package-extension.mjs chrome",
+    "package:edge": "node scripts/package-extension.mjs edge",
+    "package:firefox": "node scripts/package-extension.mjs firefox",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:e2e": "node scripts/validate-extension.mjs release/chrome",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "extension:build": "vite build --mode extension"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "lucide-react": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "vite": "latest"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "latest",
+    "@testing-library/react": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "jsdom": "latest",
+    "typescript": "latest",
+    "vitest": "latest"
+  }
+}
