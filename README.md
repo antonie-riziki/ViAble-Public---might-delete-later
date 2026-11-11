@@ -8,6 +8,9 @@ This repository contains a real MV3 browser-extension foundation: a branded Reac
 
 [![Architecture diagram of antonie-riziki/viable-public---might-delete-later](https://gitdiagram.com/antonie-riziki/viable-public---might-delete-later/diagram.png)](https://gitdiagram.com/antonie-riziki/viable-public---might-delete-later?utm_source=readme&utm_medium=picture)
 
+
+[![Architecture diagram](https://gitdiagram.com/diagram-badge.svg)](https://gitdiagram.com/antonie-riziki/viable-public---might-delete-later?utm_source=readme&utm_medium=badge)
+
 ## Setup
 
 Requires Node.js 20+ and pnpm/npm.
