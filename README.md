@@ -6,6 +6,8 @@ ViAble is a multilingual web accessibility and interaction assistant for blind a
 
 This repository contains a real MV3 browser-extension foundation: a branded React/Vite side panel, toolbar action, background service worker, user-activated semantic content script, local settings/options page, browser action boundary, and Chrome/Edge/Firefox release manifests. The primary interaction is voice-first: press the microphone, speak a request, and receive a spoken answer. Typed input remains available as an accessible fallback. Gemini reasoning and ElevenLabs speech are reached through the server-only local voice proxy; provider keys are never bundled into the extension.
 
+[![Architecture diagram of antonie-riziki/viable-public---might-delete-later](https://gitdiagram.com/antonie-riziki/viable-public---might-delete-later/diagram.png)](https://gitdiagram.com/antonie-riziki/viable-public---might-delete-later?utm_source=readme&utm_medium=picture)
+
 ## Setup
 
 Requires Node.js 20+ and pnpm/npm.
